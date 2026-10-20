@@ -1,42 +1,51 @@
-# Instance Bible — Persistence Prototype
+# 📖 Instance Architect — QA v0.2
 
-An **experimental, opt-in frontend extension** for SillyTavern / TauriTavern and Megumin V11. This is only a **save → reload → inject** test. It does **not** generate mysteries or modify your GM character card.
+Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
-## Install from Git (phone-friendly)
+## What v0.2 does
 
-In TauriTavern or SillyTavern, open the **Extensions** manager and choose **Install Extension**, then paste:
+- Adds a **Generate Instance** button inside Extensions settings.
+- On a disposable Infinite Flow GM chat, asks the current story model for a **private structured mystery Bible** using the current GM card, scenario, player persona, and initial greeting.
+- Checks required fields, two independently sourced clue routes per required fact, ordinary/optional clears, NPC knowledge, meaningful adult male romance opportunity, pacing, and recovery paths.
+- Makes a **second private AI review request** to reject evident design issues.
+- Saves a passing draft as a locked **per-chat metadata record**.
+- Attempts to supply that fixed record on subsequent eligible V11 story prompts.
+- Allows explicit deletion of the QA record.
 
-```text
+**The previous PAPER CRANE proof of concept remains a completed test.** This version uses a different metadata key; it does not migrate or remove v0.1's test data.
+
+## Install/update on your phone
+
+Use TauriTavern's extension manager to **Update** the existing Instance Bible installation from:
+
 https://github.com/chikausa14/instance-bible-prototype
-```
 
-Install as a **frontend extension**. Reload the app if necessary. Look in the Extensions settings for **📖 Instance Bible — Prototype**.
+Reload TauriTavern. Look for **📖 Instance Architect — QA v0.2** in Extensions settings.
 
-The files `manifest.json`, `index.js`, `core.mjs`, and `style.css` live at the repository root, as expected by Git installation. If the Git installer is missing or reports an error, stop there—do not manually alter Megumin.
+## Test safely
 
-## Test only in a throwaway Infinite Flow GM chat
+1. Create a brand-new/disposable chat with the Infinite Flow GM v0.3 card; do NOT use the Lucien campaign, QA-003, or anything you want to preserve.
+2. In that new chat, open Extensions and tap **Generate Instance**.
+3. Confirm that you want to spend the provider usage for multiple generation calls.
+4. Wait for the result. **Locked** indicates the structural tests and second AI reviewer passed; **Not locked** gives the rejection reason.
+5. Reload the app, revisit the same QA chat, and verify the locked title persists.
+6. If desired, generate one short exploratory story turn and check that the injection timestamp appears. Play only in this disposable chat.
+7. **Delete QA Bible** removes the test record. Do not use that deleted run for valid mystery-structure QA.
 
-1. Back up important saves. Open a **NEW / duplicated test chat** using your Infinite Flow GM.
-2. Under **Instance Bible — Prototype**, tap **Save harmless TEST Bible**. This record only contains the phrase `PAPER CRANE`; it is *not* a real mystery.
-3. Tap **Check status**. Switch to another chat and back; check again. Reload the app and confirm the record remains saved.
-4. Generate one benign story reply in the test chat. Tap **Check status**. A recent injection timestamp means the extension *attempted* to add the test Bible to the prompt.
-5. If possible, inspect an actual outgoing prompt in a debug/prompt preview view. It should contain `<LOCKED_INSTANCE_BIBLE version="1">` and `PAPER CRANE`. This is for the harmless test *only*; viewing future real Bibles would spoil the game.
-6. Tap **Delete TEST Bible** to clean up.
+## Important limitations
 
-If there is no status panel, no saved record after reload, or no injection timestamp, report what happened. **Do not treat an unverified injection as success.**
+**UNTESTED IN YOUR APP:** The new background generation is not yet verified in TauriTavern. It may fail due to quiet-request interception, model output formatting, request order, or provider token limits. Please report screenshots or the exact error; do not troubleshoot by changing Megumin.
 
-## Implementation details
+**Not guaranteed spoiler-proof:** Chat owners can inspect metadata/debug prompts. A model can still leak a hidden secret in prose. The fixed Bible and reviewer reduce risk but **do not guarantee** logically correct riddles or prevent all reveals.
 
-- Stores one record in per-chat `chatMetadata.pipette_instance_bible_poc` with a lock flag.
-- Uses the SillyTavern frontend event `CHAT_COMPLETION_PROMPT_READY` to prepend the test record to the story model's prompt only for an Infinite Flow GM chat with V11 markers.
-- Makes **no separate AI calls** and introduces **no new external data services**.
-- Leaves Megumin itself, Chomusuke jobs, Story Director, World State, Notebook and the GM card unchanged.
-- `core.test.mjs` contains simple unit tests. Locally, run `node --test core.test.mjs`.
+**Not an enforced pre-play gate:** Existing chats and prompts can still run before generating a Bible. Treat the chat as a setup/test run until a lock is visibly confirmed.
 
-## Limitations
+**Generation/review is not cryptographic validation:** The schema checks completeness and some clue independence; the second reviewer checks reasoning but may be wrong.
 
-This code has been tested for its pure logic but **not yet verified inside your TauriTavern app**. Event ordering, prompt structure, mobile UI, and persistence must be checked on your device.
+**Not a true story-world state machine:** It does not yet automatically archive one Bible after clear or start another. Story Director/Notebook/World State still run separately.
 
-The record is locked against ordinary **UI edits**, not cryptographically tamper-proof. The chat owner can inspect chat metadata and debug prompts. Do not store sensitive personal data.
+**Costs:** Generation and audit use the currently configured model/provider. Failed generations may still consume tokens.
 
-**Not implemented:** autonomous Instance Bible generation, automated validation, a true pre-game gate, or real spoiler-proof storage. Those come only after this prototype passes.
+**Model limitations:** Very long output can truncate and fail validation. Drafts that fail or audits that reject do not seal and must be regenerated deliberately.
+
+The extension is experimental and must never store private personal data in the Bible. It does not modify Megumin itself.
