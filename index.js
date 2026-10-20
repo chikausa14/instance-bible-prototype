@@ -55,7 +55,7 @@ async function generate(){
 function buildUI(){
  if($('ibp-panel'))return;
  const box=document.createElement('div');box.id='ibp-panel';
- const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.2';box.append(h);
+ const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.3';box.append(h);
  const p=document.createElement('p');p.textContent='Experimental. Generate, audit and seal a PRIVATE GM mystery before play. Only use in a disposable QA chat.';box.append(p);
  const controls=document.createElement('div');controls.className='ibp-controls';
  const btn=(id,label,cb)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=label;b.addEventListener('click',cb);controls.append(b)};
@@ -79,5 +79,5 @@ function inject(payload,type){
  messages.unshift({role:'system',content:injection(rec)});
  lastInjected=c.chatId;lastTime=new Date().toLocaleTimeString();status();
 }
-function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.2] isolated raw generation; test only')}
+function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.3] isolated raw generation; test only')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
