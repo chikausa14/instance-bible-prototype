@@ -4,8 +4,8 @@ const arr=(a,n=1)=>Array.isArray(a)&&a.length>=n;
 const texts=(a,n=1)=>arr(a,n)&&a.every(w);
 const obj=x=>x&&typeof x==='object'&&!Array.isArray(x);
 export function parseJSON(raw){
- const s=String(raw||'').replace(/<think\\b[^>]*>[\\s\\S]*?<\\/think\\s*>/gi,'')
-   .replace(/^\\s*\\u0060{3}(?:json)?\\s*/i,'').replace(/\\s*\\u0060{3}\\s*$/,'').trim();
+ const s=String(raw||'').replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi,'')
+   .replace(/^\s*\u0060{3}(?:json)?\s*/i,'').replace(/\s*\u0060{3}\s*$/,'').trim();
  const a=s.indexOf('{'),z=s.lastIndexOf('}');
  if(a<0||z<=a)throw Error('Response has no complete JSON object ('+s.length+' characters).');
  const candidate=s.slice(a,z+1);
