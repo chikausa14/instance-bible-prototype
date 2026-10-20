@@ -1,4 +1,4 @@
-# 📖 Instance Architect — QA v0.2.2
+# 📖 Instance Architect — QA v0.2.3
 
 Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
@@ -48,6 +48,14 @@ Changes:
 - If `generateRaw` is not available on your TauriTavern fork, the panel explains that rather than sending an unsafe fallback request.
 
 **QA:** Install/update on a disposable Infinite Flow GM chat. Keep TauriTavern in the foreground during the next test, and wait for the panel to show either `Generated, reviewed, and sealed` or a stage-labeled error. This change is published but **not yet verified on your phone**.
+
+## v0.2.3: Fix the NPC validator (QA regression)
+
+The v0.2.2 phone test completed isolated generation and JSON parsing, but flagged the NPC section. Our own validator incorrectly demanded six-character text for `gender`, causing the normal value `"male"` to fail. It also treated `"female"` as containing `"male"` when detecting a male romance prospect.
+
+This release validates gender as a nonempty label, checks names and adult ages separately, and identifies which NPC field is missing, without displaying hidden mystery content. The adult-only constraint and requirement for an accessible adult male romantic opportunity remain.
+
+**No Bible was saved by the failed v0.2.2 test.** If you choose to retry, it is a new paid GLM generation. Update the extension, reload, confirm QA v0.2.3, then generate only in a disposable chat.
 
 ## Important limitations
 
