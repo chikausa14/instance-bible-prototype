@@ -1,5 +1,5 @@
 import {getContext,saveMetadataDebounced} from '../../../extensions.js';
-import {eventSource,event_types,substituteParams,generateQuietPrompt} from '../../../../script.js';
+import {eventSource,event_types,substituteParams} from '../../../../script.js';
 import {KEY,parseJSON,validate,sealed,lock,injection,SYSTEM,generationPrompt,reviewPrompt} from './architect.mjs';
 const $=id=>document.getElementById(id);
 let lastInjected='',lastTime='',busy=false,lastReport='';
@@ -13,24 +13,19 @@ function status(msg=''){
  const btn=$('ibp-generate');if(btn)btn.disabled=busy||!c||sealed(rec);
  const wipe=$('ibp-delete');if(wipe)wipe.disabled=busy||!c||!sealed(rec);
 }
-function megModeRequest(kind,system,user){
- // Temporarily captures ONLY this extension's quiet utility call. Do not let Megumin's
- // main V11 story prompt and existing chat history contaminate the private blueprint.
- // CHAT_COMPLETION_PROMPT_READY is emitted synchronously through the standard ST request.
- return new Promise(async (resolve,reject)=>{
-  let engaged=false;
-  const handler=data=>{
-   if(!engaged)return;
-   const messages=data?.messages||data?.chat||(Array.isArray(data)?data:null);
-   if(!Array.isArray(messages)||!messages.some(m=>typeof m.content==='string'&&m.content.includes('___IBP_PRIVATE_'+kind+'___')))return;
-   messages.splice(0,messages.length,{role:'system',content:system},{role:'user',content:user});
-  };
-  eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,handler);
-  engaged=true;
-  try{resolve(await generateQuietPrompt({prompt:'___IBP_PRIVATE_'+kind+'___',quietPrompt:'___IBP_PRIVATE_'+kind+'___'}))}
-  catch(e){reject(e)}
-  finally {engaged=false;eventSource.removeListener?.(event_types.CHAT_COMPLETION_PROMPT_READY,handler)}
- });
+async function megModeRequest(kind, system, user) {
+  // Official SillyTavern getContext().generateRaw provides an isolated request:
+  // No chat history, Megumin V11 prompt, World Info, or event interception.
+  // A missing API is a clear failure: never silently fall back to contaminated prompts.
+  const api = getContext()?.generateRaw;
+  if (typeof api !== 'function') {
+    throw Error('Isolated generateRaw API unavailable in this TauriTavern build. No request sent.');
+  }
+  const result = await api({ systemPrompt: system, prompt: user });
+  if (typeof result !== 'string' || !result.trim()) {
+    throw Error('Isolated '+kind+' request returned no text.');
+  }
+  return result;
 }
 async function generate(){
  if(busy)return;const c=ctx();if(!c)return status('No compatible chat open');
@@ -38,12 +33,15 @@ async function generate(){
  if(!confirm('Generate a private mystery blueprint in this THROWAWAY test chat? This makes two or more GLM calls and uses provider credits. The resulting mystery will not be shown.'))return;
  busy=true;status('Generating privately…');
  const originalId=c.chatId;
+ let stage='generation';
  try{
   const macro=k=>{try{return substituteParams(k)}catch{return ''}};
   const info={description:macro('{{description}}'),scenario:macro('{{scenario}}'),persona:macro('{{persona}}'),greeting:c.chat?.[0]?.mes||macro('{{char}}')};
   const draft=parseJSON(await megModeRequest('GENERATE',SYSTEM,generationPrompt(info)));
   const structure=validate(draft);
   if(!structure.ok)throw Error('Draft incomplete: '+structure.issues.join(', '));
+  if(ctx()?.chatId!==originalId)throw Error('Chat changed while generating; nothing saved.');
+  stage='review';
   status('Reviewing clue fairness…');
   const review=parseJSON(await megModeRequest('REVIEW','You are a meticulous independent game-mystery auditor. Output only JSON.',reviewPrompt(draft)));
   const live=ctx();
@@ -51,13 +49,13 @@ async function generate(){
   lock(live.chatMetadata,draft,review);
   saveMetadataDebounced();
   status('Generated, reviewed, and sealed. Ready for QA (not yet full automatic campaign integration)');
- }catch(e){status('Not locked: '+String(e.message||e).slice(0,250));}
+ }catch(e){status('Not locked ('+stage+'): '+String(e.message||e).slice(0,250));}
  finally{busy=false;status()}
 }
 function buildUI(){
  if($('ibp-panel'))return;
  const box=document.createElement('div');box.id='ibp-panel';
- const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2';box.append(h);
+ const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.2';box.append(h);
  const p=document.createElement('p');p.textContent='Experimental. Generate, audit and seal a PRIVATE GM mystery before play. Only use in a disposable QA chat.';box.append(p);
  const controls=document.createElement('div');controls.className='ibp-controls';
  const btn=(id,label,cb)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=label;b.addEventListener('click',cb);controls.append(b)};
@@ -81,5 +79,5 @@ function inject(payload,type){
  messages.unshift({role:'system',content:injection(rec)});
  lastInjected=c.chatId;lastTime=new Date().toLocaleTimeString();status();
 }
-function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2] loaded; test only')}
+function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.2] isolated raw generation; test only')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
