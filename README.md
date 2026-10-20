@@ -1,4 +1,4 @@
-# 📖 Instance Architect — QA v0.2.1
+# 📖 Instance Architect — QA v0.2.2
 
 Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
@@ -35,6 +35,19 @@ Reload TauriTavern. Look for **📖 Instance Architect — QA v0.2** in Extensio
 ## v0.2.1 JSON-generation fix
 
 The first mobile generation returned malformed JSON around character 18,997. This release asks for a compact, fixed-size blueprint (three map nodes, two rule mechanisms, two mandatory facts with two independent clues each, three named adults, four walkthrough steps), removes reasoning tags when parsing, and reports output length and closing-brace status **without showing private mystery text**. The result is still audited separately and saved only if all checks pass. This is a hypothesis-driven fix, not a confirmed solution; please retest on a throwaway chat.
+
+## v0.2.2: Isolated generation and safer parsing
+
+The second phone test returned 7,751 characters, with a JSON parser error about extra non-whitespace after a valid object. The phone switching between apps is **not established** as the root cause.
+
+Changes:
+- Uses SillyTavern's documented `getContext().generateRaw({ systemPrompt, prompt })` API for generation and review. This avoids chat history and our previous quiet-request event interception; it may also improve speed, but this is not yet measured.
+- Parses the **first balanced JSON object**, permitting limited trailing prose while rejecting multiple conflicting objects. Malformed/incomplete JSON still fails safely; no object is locked until validation and review pass.
+- Reports whether **generation** or **review** failed.
+- Updates the visible settings-panel version (it was hard-coded to v0.2 even when v0.2.1 was installed).
+- If `generateRaw` is not available on your TauriTavern fork, the panel explains that rather than sending an unsafe fallback request.
+
+**QA:** Install/update on a disposable Infinite Flow GM chat. Keep TauriTavern in the foreground during the next test, and wait for the panel to show either `Generated, reviewed, and sealed` or a stage-labeled error. This change is published but **not yet verified on your phone**.
 
 ## Important limitations
 
