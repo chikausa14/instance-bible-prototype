@@ -1,4 +1,4 @@
-# 📖 Instance Architect — QA v0.2
+# 📖 Instance Architect — QA v0.2.1
 
 Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
@@ -31,6 +31,10 @@ Reload TauriTavern. Look for **📖 Instance Architect — QA v0.2** in Extensio
 5. Reload the app, revisit the same QA chat, and verify the locked title persists.
 6. If desired, generate one short exploratory story turn and check that the injection timestamp appears. Play only in this disposable chat.
 7. **Delete QA Bible** removes the test record. Do not use that deleted run for valid mystery-structure QA.
+
+## v0.2.1 JSON-generation fix
+
+The first mobile generation returned malformed JSON around character 18,997. This release asks for a compact, fixed-size blueprint (three map nodes, two rule mechanisms, two mandatory facts with two independent clues each, three named adults, four walkthrough steps), removes reasoning tags when parsing, and reports output length and closing-brace status **without showing private mystery text**. The result is still audited separately and saved only if all checks pass. This is a hypothesis-driven fix, not a confirmed solution; please retest on a throwaway chat.
 
 ## Important limitations
 
