@@ -4,16 +4,40 @@ const arr=(a,n=1)=>Array.isArray(a)&&a.length>=n;
 const texts=(a,n=1)=>arr(a,n)&&a.every(w);
 const obj=x=>x&&typeof x==='object'&&!Array.isArray(x);
 export function parseJSON(raw){
- const s=String(raw||'').replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi,'')
-   .replace(/^\s*\u0060{3}(?:json)?\s*/i,'').replace(/\s*\u0060{3}\s*$/,'').trim();
- const a=s.indexOf('{'),z=s.lastIndexOf('}');
- if(a<0||z<=a)throw Error('Response has no complete JSON object ('+s.length+' characters).');
- const candidate=s.slice(a,z+1);
- try {return JSON.parse(candidate)}
- catch(e) {
-  const ending=s.endsWith('}')?'response ends in }':'response has no closing } at the end';
-  throw Error('Invalid JSON ('+s.length+' chars; '+ending+'): '+e.message);
+ const text=String(raw||'')
+   .replace(/<think\b[^>]*>[\s\S]*?<\/think\s*>/gi,'')
+   .replace(/^\s*\u0060{3}(?:json)?\s*/i,'')
+   .replace(/\s*\u0060{3}\s*$/,'').trim();
+ const begin=text.indexOf('{');
+ if(begin<0)throw Error('Model response contains no JSON object ('+text.length+' characters).');
+ // Locate the FIRST complete top-level JSON object. An extra explanation after an
+ // otherwise valid JSON object must not make parsing fail by extending to the last }.
+ let depth=0,inString=false,escaped=false,end=-1;
+ for(let i=begin;i<text.length;i++){
+   const ch=text[i];
+   if(inString){
+     if(escaped)escaped=false;
+     else if(ch==='\\')escaped=true;
+     else if(ch==='"')inString=false;
+   }else if(ch==='"')inString=true;
+   else if(ch==='{')depth++;
+   else if(ch==='}'){
+     depth--;
+     if(depth===0){end=i+1;break;}
+   }
  }
+ if(end<0)throw Error('Incomplete JSON ('+text.length+' characters; no closing top-level brace).');
+ let result;
+ try{result=JSON.parse(text.slice(begin,end))}
+ catch(err){throw Error('Invalid JSON near the start ('+text.length+' chars): '+err.message)}
+ const trailing=text.slice(end).trim().replace(/^\u0060{3}\s*/,'').trim();
+ // Do not quietly accept multiple competing Bibles or audit verdicts.
+ if(trailing.includes('{')||trailing.includes('}'))
+   throw Error('Multiple JSON objects or extra brace text detected ('+text.length+' chars).');
+ // Only tolerate a small amount of plain trailing prose, not arbitrarily long dumps.
+ if(trailing.length>800)
+   throw Error('Excess trailing non-JSON output ('+trailing.length+' characters).');
+ return result;
 }
 export function validate(b){
  const issues=[],ck=(test,label)=>{if(!test)issues.push(label)};
