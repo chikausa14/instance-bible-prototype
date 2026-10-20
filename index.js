@@ -2,13 +2,14 @@ import {getContext,saveMetadataDebounced} from '../../../extensions.js';
 import {eventSource,event_types,substituteParams,generateQuietPrompt} from '../../../../script.js';
 import {KEY,parseJSON,validate,sealed,lock,injection,SYSTEM,generationPrompt,reviewPrompt} from './architect.mjs';
 const $=id=>document.getElementById(id);
-let lastInjected='',lastTime='',busy=false;
+let lastInjected='',lastTime='',busy=false,lastReport='';
 const ctx=()=>{const c=getContext();if(!c?.chatId||!c?.chatMetadata)return null;const name=c.characters?.[c.characterId]?.name||c.name2||'';return String(name).includes('Infinite Flow BL Survival Simulator')?c:null};
 const current=()=>{const c=ctx();return c?c.chatMetadata[KEY]:null};
 function status(msg=''){
+ if(msg)lastReport=msg;
  const el=$('ibp-status');if(!el)return;
  const c=ctx(),rec=current();
- el.textContent=(msg?msg+' · ':'')+(!c?'Open an Infinite Flow GM QA chat':sealed(rec)?'🔒 Instance Bible locked: '+rec.bible.title:'No locked Instance Bible in this chat')+(c&&lastInjected===c.chatId?' · Last prompt injection '+lastTime:' · No new injection observed');
+ el.textContent=(lastReport?lastReport+' · ':'')+(!c?'Open an Infinite Flow GM QA chat':sealed(rec)?'🔒 Instance Bible locked: '+rec.bible.title:'No locked Instance Bible in this chat')+(c&&lastInjected===c.chatId?' · Last prompt injection '+lastTime:' · No new injection observed');
  const btn=$('ibp-generate');if(btn)btn.disabled=busy||!c||sealed(rec);
  const wipe=$('ibp-delete');if(wipe)wipe.disabled=busy||!c||!sealed(rec);
 }
@@ -21,7 +22,7 @@ function megModeRequest(kind,system,user){
   const handler=data=>{
    if(!engaged)return;
    const messages=data?.messages||data?.chat||(Array.isArray(data)?data:null);
-   if(!Array.isArray(messages))return;
+   if(!Array.isArray(messages)||!messages.some(m=>typeof m.content==='string'&&m.content.includes('___IBP_PRIVATE_'+kind+'___')))return;
    messages.splice(0,messages.length,{role:'system',content:system},{role:'user',content:user});
   };
   eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,handler);
