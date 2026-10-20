@@ -1,0 +1,6 @@
+#ibp-panel { margin: 12px 0; padding: 12px; border: 1px solid #a2678e; border-radius: 12px; background: rgba(255, 220, 235, 0.12); }
+#ibp-panel h3 { font-size: 1.05em; margin: 0 0 8px; }
+#ibp-panel p { margin: 7px 0; line-height: 1.4; }
+#ibp-panel .ibp-controls { display: flex; gap: 7px; flex-wrap: wrap; }
+#ibp-panel button { border-radius: 8px; padding: 6px 9px; border: 1px solid #a2678e; cursor: pointer; }
+#ibp-status { font-size: .9em; opacity: .85; }
