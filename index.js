@@ -1,6 +1,6 @@
 import {getContext,saveMetadataDebounced} from '../../../extensions.js';
 import {eventSource,event_types,substituteParams} from '../../../../script.js';
-import {KEY,parseJSON,validate,sealed,lock,injection,SYSTEM,generationPrompt,reviewPrompt} from './architect.mjs';
+import {KEY,DRAFT_KEY,parseJSON,validate,sealed,lock,injection,pending,saveDraft,recordReview,reviewSummary,repairPrompt,SYSTEM,generationPrompt,reviewPrompt} from './architect.mjs';
 const $=id=>document.getElementById(id);
 let lastInjected='',lastTime='',busy=false,lastReport='';
 const ctx=()=>{const c=getContext();if(!c?.chatId||!c?.chatMetadata)return null;const name=c.characters?.[c.characterId]?.name||c.name2||'';return String(name).includes('Infinite Flow BL Survival Simulator')?c:null};
@@ -8,9 +8,17 @@ const current=()=>{const c=ctx();return c?c.chatMetadata[KEY]:null};
 function status(msg=''){
  if(msg)lastReport=msg;
  const el=$('ibp-status');if(!el)return;
- const c=ctx(),rec=current();
- el.textContent=(lastReport?lastReport+' · ':'')+(!c?'Open an Infinite Flow GM QA chat':sealed(rec)?'🔒 Instance Bible locked: '+rec.bible.title:'No locked Instance Bible in this chat')+(c&&lastInjected===c.chatId?' · Last prompt injection '+lastTime:' · No new injection observed');
- const btn=$('ibp-generate');if(btn)btn.disabled=busy||!c||sealed(rec);
+ const c=ctx(),rec=current(),d=c?pending(c.chatMetadata):null;
+ const state=!c?'Open an Infinite Flow GM QA chat'
+   :sealed(rec)?'🔒 LOCKED: '+rec.bible.title
+   :d?'UNSEALED candidate retained. '+reviewSummary(d)
+   :'No locked Instance Bible in this chat';
+ el.textContent=(lastReport?lastReport+' · ':'')+state+
+   (c&&lastInjected===c.chatId?' · Last prompt injection '+lastTime:' · No new injection observed');
+ const canEdit=!!c&&!busy&&!sealed(rec);
+ const generate=$('ibp-generate');if(generate)generate.disabled=!canEdit||!!d;
+ const repair=$('ibp-repair');if(repair){repair.disabled=!canEdit||!d;repair.textContent=d?.audit?.issues?.length?'🛠️ Repair & Re-review':'🔍 Retry Review'}
+ const discard=$('ibp-discard');if(discard)discard.disabled=!canEdit||!d;
  const wipe=$('ibp-delete');if(wipe)wipe.disabled=busy||!c||!sealed(rec);
 }
 async function megModeRequest(kind, system, user) {
@@ -27,44 +35,98 @@ async function megModeRequest(kind, system, user) {
   }
   return result;
 }
+function requireSameChat(id){
+ const active=ctx();
+ if(!active||active.chatId!==id)throw Error('Chat changed during AI work. No new result saved.');
+ return active;
+}
+async function reviewAndSeal(id){
+ const c=requireSameChat(id);
+ const draft=pending(c.chatMetadata);
+ if(!draft)throw Error('No validated unsealed draft available for review.');
+ status('Reviewing privately…');
+ const verdict=parseJSON(await megModeRequest('REVIEW',
+   'You are an independent mystery QA auditor. Output only the requested JSON verdict. Reject unprovable puzzle fairness.',
+   reviewPrompt(draft.bible)));
+ const live=requireSameChat(id);
+ if(!recordReview(live.chatMetadata,verdict)){
+  saveMetadataDebounced();
+  status('Review rejected. '+reviewSummary(pending(live.chatMetadata))+' Use Repair & Re-review.');
+  return false;
+ }
+ lock(live.chatMetadata,draft.bible,verdict);
+ delete live.chatMetadata[DRAFT_KEY];
+ saveMetadataDebounced();
+ status('Generated, independently reviewed and SEALED! QA only; not production-ready.');
+ return true;
+}
 async function generate(){
- if(busy)return;const c=ctx();if(!c)return status('No compatible chat open');
- if(sealed(c.chatMetadata[KEY]))return status('Already locked');
- if(!confirm('Generate a private mystery blueprint in this THROWAWAY test chat? This makes two or more GLM calls and uses provider credits. The resulting mystery will not be shown.'))return;
- busy=true;status('Generating privately…');
+ if(busy)return;
+ const c=ctx();if(!c)return status('No compatible chat open.');
+ if(sealed(c.chatMetadata[KEY]))return status('Bible already sealed.');
+ if(pending(c.chatMetadata))return status('A candidate already exists. Repair, retry review or discard it.');
+ if(!confirm('Generate a PRIVATE mystery candidate in this disposable QA chat? Uses GLM tokens for generation and auditing.'))return;
+ busy=true;let stage='generation';status('Generating private candidate…');
  const originalId=c.chatId;
- let stage='generation';
  try{
   const macro=k=>{try{return substituteParams(k)}catch{return ''}};
-  const info={description:macro('{{description}}'),scenario:macro('{{scenario}}'),persona:macro('{{persona}}'),greeting:c.chat?.[0]?.mes||macro('{{char}}')};
+  const info={description:macro('{{description}}'),scenario:macro('{{scenario}}'),
+    persona:macro('{{persona}}'),greeting:c.chat?.[0]?.mes||''};
   const draft=parseJSON(await megModeRequest('GENERATE',SYSTEM,generationPrompt(info)));
-  const structure=validate(draft);
-  if(!structure.ok)throw Error('Draft incomplete: '+structure.issues.join(', '));
-  if(ctx()?.chatId!==originalId)throw Error('Chat changed while generating; nothing saved.');
-  stage='review';
-  status('Reviewing clue fairness…');
-  const review=parseJSON(await megModeRequest('REVIEW','You are a meticulous independent game-mystery auditor. Output only JSON.',reviewPrompt(draft)));
-  const live=ctx();
-  if(!live||live.chatId!==originalId)throw Error('Chat changed during generation. Nothing was saved.');
-  lock(live.chatMetadata,draft,review);
+  const v=validate(draft);
+  if(!v.ok)throw Error('Draft incomplete: '+v.issues.join(', '));
+  const live=requireSameChat(originalId);
+  saveDraft(live.chatMetadata,draft);
   saveMetadataDebounced();
-  status('Generated, reviewed, and sealed. Ready for QA (not yet full automatic campaign integration)');
- }catch(e){status('Not locked ('+stage+'): '+String(e.message||e).slice(0,250));}
+  stage='review';
+  await reviewAndSeal(originalId);
+ }catch(e){status('Not locked ('+stage+'): '+String(e.message||e).slice(0,240));}
+ finally{busy=false;status()}
+}
+async function repair(){
+ if(busy)return;
+ const c=ctx();if(!c)return status('No compatible QA chat open.');
+ const d=pending(c.chatMetadata);if(!d)return status('No unsealed candidate to repair.');
+ const originalId=c.chatId;
+ const doRepair=Array.isArray(d.audit?.issues)&&d.audit.issues.length>0;
+ if(!confirm((doRepair?'Repair the existing draft and re-review it?':'Retry the existing draft review?')+' This spends additional GLM tokens; the candidate remains private.'))return;
+ busy=true;let stage=doRepair?'repair':'review';status(doRepair?'Repairing private candidate…':'Retrying private review…');
+ try{
+  if(doRepair){
+   const revised=parseJSON(await megModeRequest('REPAIR',
+     SYSTEM+'\nAddress the supplied independent-review objections, keep the exact JSON schema.',
+     repairPrompt(d.bible,d.audit.issues)));
+   const v=validate(revised);
+   if(!v.ok)throw Error('Repair draft incomplete: '+v.issues.join(', '));
+   const live=requireSameChat(originalId);
+   const rec=saveDraft(live.chatMetadata,revised);
+   rec.repairAttempts=(d.repairAttempts||0)+1;
+   saveMetadataDebounced();
+  }
+  stage='review';
+  await reviewAndSeal(originalId);
+ }catch(e){status('Not locked ('+stage+'): '+String(e.message||e).slice(0,240));}
  finally{busy=false;status()}
 }
 function buildUI(){
  if($('ibp-panel'))return;
  const box=document.createElement('div');box.id='ibp-panel';
- const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.3';box.append(h);
- const p=document.createElement('p');p.textContent='Experimental. Generate, audit and seal a PRIVATE GM mystery before play. Only use in a disposable QA chat.';box.append(p);
+ const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.4';box.append(h);
+ const p=document.createElement('p');p.textContent='Experimental. Generate, preserve and repair private drafts; only reviewed Bibles are locked. Disposable QA chats only.';box.append(p);
  const controls=document.createElement('div');controls.className='ibp-controls';
  const btn=(id,label,cb)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=label;b.addEventListener('click',cb);controls.append(b)};
  btn('ibp-generate','✨ Generate Instance',generate);
+ btn('ibp-repair','🛠️ Repair & Re-review',repair);
  btn('ibp-check','Check status',()=>status());
+ btn('ibp-discard','Discard UNSEALED Draft',()=>{
+  const c=ctx();if(!c||sealed(c.chatMetadata[KEY])||!pending(c.chatMetadata))return;
+  if(!confirm('Discard the unsealed candidate? This does not affect existing saved campaigns.'))return;
+  delete c.chatMetadata[DRAFT_KEY];saveMetadataDebounced();status('Unsealed candidate discarded.');
+ });
  btn('ibp-delete','Delete QA Bible',()=>{
   const c=ctx();if(!c||!sealed(c.chatMetadata[KEY]))return;
-  if(!confirm('DELETE the SEALED Instance Bible from this QA chat? This invalidates any mystery played in it.'))return;
-  delete c.chatMetadata[KEY];saveMetadataDebounced();status('Deleted from QA chat');
+  if(!confirm('DELETE the SEALED Instance Bible from this QA chat? This invalidates the mystery run.'))return;
+  delete c.chatMetadata[KEY];saveMetadataDebounced();status('Sealed QA Bible deleted.');
  });
  box.append(controls);
  const st=document.createElement('p');st.id='ibp-status';st.setAttribute('aria-live','polite');box.append(st);
@@ -79,5 +141,5 @@ function inject(payload,type){
  messages.unshift({role:'system',content:injection(rec)});
  lastInjected=c.chatId;lastTime=new Date().toLocaleTimeString();status();
 }
-function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.3] isolated raw generation; test only')}
+function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.4] isolated raw generation; test only')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
