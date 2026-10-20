@@ -1,4 +1,4 @@
-# 📖 Instance Architect — QA v0.2.3
+# 📖 Instance Architect — QA v0.2.4
 
 Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
@@ -56,6 +56,23 @@ The v0.2.2 phone test completed isolated generation and JSON parsing, but flagge
 This release validates gender as a nonempty label, checks names and adult ages separately, and identifies which NPC field is missing, without displaying hidden mystery content. The adult-only constraint and requirement for an accessible adult male romantic opportunity remain.
 
 **No Bible was saved by the failed v0.2.2 test.** If you choose to retry, it is a new paid GLM generation. Update the extension, reload, confirm QA v0.2.3, then generate only in a disposable chat.
+
+## QA v0.2.4: Preserve an unsealed draft after audit rejection
+
+The v0.2.3 phone test passed parsing and structural validation, but the independent reviewer rejected the candidate. The previous code discarded the entire candidate, forcing a paid full regeneration.
+
+**New test-only behavior:**
+
+- As soon as a generated Bible passes structural checks, cache it in **per-chat UNSEALED draft metadata** (`pipette_instance_bible_unsealed_draft_v024`). It is **never injected** into the story.
+- Run the independent review. On rejection, keep the unsealed draft, record private audit issues, and show only generic spoiler-safe categories and an issue count.
+- Tap **🛠️ Repair & Re-review** to revise the existing draft based on those private audit issues, and run a fresh second-pass review. This costs model tokens, but does not repeat the entire initial generation from scratch.
+- If the review failed due to malformed output, tap **🔍 Retry Review** instead. It rechecks the same draft without repairing it.
+- Tap **Discard UNSEALED Draft** to abandon the candidate. **Delete QA Bible** remains for sealed test runs.
+- A malformed repair keeps the earlier validated draft. Failure to get audit approval always means **no Bible lock**. There is no infinite or automatic retry loop.
+
+**Existing failed v0.2.3 generation cannot be resumed:** that version did not save its rejected candidate. After updating and reloading, the first v0.2.4 run must start with **Generate Instance** and costs a full generation again. Future successful structural drafts should survive reviewer rejection.
+
+**Limits:** The second model reviewer may reject a perfectly fair mystery or approve an unfair one. The tool is experimental; tests on your TauriTavern build are still necessary. The unsealed draft is private GM material stored in local chat metadata—not cryptographically hidden from anyone who inspects storage. Keep working only in disposable chats.
 
 ## Important limitations
 
