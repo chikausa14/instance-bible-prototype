@@ -17,11 +17,11 @@ async function megModeRequest(kind, system, user) {
   // Official SillyTavern getContext().generateRaw provides an isolated request:
   // No chat history, Megumin V11 prompt, World Info, or event interception.
   // A missing API is a clear failure: never silently fall back to contaminated prompts.
-  const api = getContext()?.generateRaw;
-  if (typeof api !== 'function') {
+  const context = getContext();
+  if (typeof context?.generateRaw !== 'function') {
     throw Error('Isolated generateRaw API unavailable in this TauriTavern build. No request sent.');
   }
-  const result = await api({ systemPrompt: system, prompt: user });
+  const result = await context.generateRaw({ systemPrompt: system, prompt: user });
   if (typeof result !== 'string' || !result.trim()) {
     throw Error('Isolated '+kind+' request returned no text.');
   }
