@@ -1,5 +1,8 @@
 export const KEY='pipette_instance_bible_v02',SCHEMA='instance-bible-v0.2';
 const w=x=>typeof x==='string'&&x.trim().length>=6;
+const nonblank=x=>typeof x==='string'&&x.trim().length>0;
+const properName=x=>typeof x==='string'&&x.trim().length>=2;
+const maleGender=x=>nonblank(x)&&/\b(male|man)\b/i.test(x)&&!/\b(female|woman)\b/i.test(x);
 const arr=(a,n=1)=>Array.isArray(a)&&a.length>=n;
 const texts=(a,n=1)=>arr(a,n)&&a.every(w);
 const obj=x=>x&&typeof x==='object'&&!Array.isArray(x);
@@ -52,8 +55,18 @@ export function validate(b){
  ck(obj(b.clear)&&obj(b.clear.standard)&&['condition','recognition','reachableMethod'].every(k=>w(b.clear.standard[k])),'ordinary clear');
  ck(obj(b.clear)&&obj(b.clear.perfect)&&typeof b.clear.perfect.applicable==='boolean'&&(!b.clear.perfect.applicable||w(b.clear.perfect.condition)),'perfect clear');
  ck(obj(b.clear)&&obj(b.clear.liberation)&&typeof b.clear.liberation.applicable==='boolean'&&(!b.clear.liberation.applicable||w(b.clear.liberation.bindingAnchor)),'liberation');
- ck(arr(b.npcs,3)&&b.npcs.every(x=>obj(x)&&Number.isInteger(x.age)&&x.age>=18&&['name','gender','role','motivation','knowledge','ignorance','initialAction'].every(k=>w(x[k]))),'three named adult NPCs');
- ck(arr(b.npcs)&&b.npcs.some(x=>x.romanceProspect===true&&String(x.gender).toLowerCase().includes('male')&&x.age>=18&&w(x.introductionOpportunity)),'adult male romantic opportunity');
+ ck(arr(b.npcs,3),'at least three NPC records');
+ if(Array.isArray(b.npcs))b.npcs.forEach((x,i)=>{
+  const n='NPC #'+(i+1);
+  ck(obj(x),n+': valid NPC record');
+  if(!obj(x))return;
+  ck(properName(x.name),n+': name (two or more characters)');
+  ck(Number.isInteger(x.age)&&x.age>=18,n+': integer age 18+');
+  ck(nonblank(x.gender),n+': nonempty gender');
+  for(const k of ['role','motivation','knowledge','ignorance','initialAction'])
+   ck(w(x[k]),n+': '+k+' description');
+ });
+ ck(arr(b.npcs)&&b.npcs.some(x=>obj(x)&&x.romanceProspect===true&&maleGender(x.gender)&&Number.isInteger(x.age)&&x.age>=18&&w(x.introductionOpportunity)),'accessible adult male romantic opportunity');
  ck(obj(b.dynamic)&&texts(b.dynamic.quietMoments,2)&&texts(b.dynamic.triggeredEvents,2)&&w(b.dynamic.improvisationLimits),'dynamic events and breathers');
  ck(obj(b.pacing)&&['earlyObjective','clueSpacing','avoidNoise'].every(k=>w(b.pacing[k])),'clarity and pacing');
  ck(obj(b.recovery)&&w(b.recovery.missedClues)&&w(b.recovery.failureHandling),'fallbacks');
