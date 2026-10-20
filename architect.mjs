@@ -4,10 +4,16 @@ const arr=(a,n=1)=>Array.isArray(a)&&a.length>=n;
 const texts=(a,n=1)=>arr(a,n)&&a.every(w);
 const obj=x=>x&&typeof x==='object'&&!Array.isArray(x);
 export function parseJSON(raw){
- const s=String(raw||'').replace(/^\s*\u0060{3}(?:json)?\s*/i,'').replace(/\s*\u0060{3}\s*$/,'').trim();
+ const s=String(raw||'').replace(/<think\\b[^>]*>[\\s\\S]*?<\\/think\\s*>/gi,'')
+   .replace(/^\\s*\\u0060{3}(?:json)?\\s*/i,'').replace(/\\s*\\u0060{3}\\s*$/,'').trim();
  const a=s.indexOf('{'),z=s.lastIndexOf('}');
- if(a<0||z<=a)throw Error('No JSON object returned');
- return JSON.parse(s.slice(a,z+1));
+ if(a<0||z<=a)throw Error('Response has no complete JSON object ('+s.length+' characters).');
+ const candidate=s.slice(a,z+1);
+ try {return JSON.parse(candidate)}
+ catch(e) {
+  const ending=s.endsWith('}')?'response ends in }':'response has no closing } at the end';
+  throw Error('Invalid JSON ('+s.length+' chars; '+ending+'): '+e.message);
+ }
 }
 export function validate(b){
  const issues=[],ck=(test,label)=>{if(!test)issues.push(label)};
@@ -60,6 +66,11 @@ export const SYSTEM=[
  'Name the three starting adult survivors. Include an accessible adult male romantic prospect with independent goals; never guarantee a relationship.',
  'Do not demand perfect clear, master liberation or romance for ordinary escape.',
  'Keep larger cosmology and hub unmentioned before the first clear. Output concise, concrete details.',
+ 'CRITICAL OUTPUT CONTRACT: Entire JSON should be below 12000 characters. Write compact JSON with no Markdown.',
+ 'Exactly 3 connected map nodes, 2 mechanics, 2 mandatory facts, 2 clue sources per fact, 3 named adults, and 4 walkthrough steps.',
+ 'Each property value should be one concise factual sentence, except where the schema requires arrays or nested objects.',
+ 'Escape quotation marks inside JSON strings. Never use raw line breaks inside a quoted string; always close all brackets and braces.',
+ 'Shorten descriptions rather than omitting required facts, dangers, clear conditions, evidence or counters.',
 ].join('\n');
 export const SHAPE={
  schema:SCHEMA,id:'specific instance ID',title:'specific instance title',rank:'F-rank',atmosphere:'setting mood',
@@ -81,7 +92,10 @@ export function generationPrompt(input){return [
  'Player persona, do not expand history:',String(input.persona||'').slice(0,3000),
  'Fixed visible opening:',String(input.greeting||'').slice(0,4500),
  'Produce ALL fields in this schema and real content, not examples:',JSON.stringify(SHAPE),
- 'Extend arrays as needed; every mandatory fact needs independent clue locations; named map connections must exist; make the four-step walkthrough genuinely possible without spoilers.'
+ 'Return ONE complete parsable compact JSON object. No thoughts, comments, trailing commas, Markdown, or preamble.',
+ 'Use exactly 3 named map locations, 2 supernatural mechanics, 2 requiredFacts (with two distinct accessible clue sources each), 3 named NPCs, and 4 walkthrough steps.',
+ 'Keep the whole response UNDER 12000 characters. Use short specific single-sentence strings. All required keys must appear.',
+ 'Map connection names must exist in map. Make the standard clear reachable without a romance, perfect clear or master liberation.'
  ].join('\n\n')}
 export function reviewPrompt(b){return [
  'INDEPENDENT ADVERSARIAL AUDIT. Evaluate solvability by a player who knows only the opening, fair route to all clues, geography, number/timing consistency, threats and counterplay, meaningful NPC knowledge and ordinary clear independent of romance.',
