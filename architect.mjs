@@ -1,4 +1,4 @@
-export const KEY='pipette_instance_bible_v02',SCHEMA='instance-bible-v0.2';
+export const KEY='pipette_instance_bible_v02',DRAFT_KEY='pipette_instance_bible_unsealed_draft_v024',SCHEMA='instance-bible-v0.2';
 const w=x=>typeof x==='string'&&x.trim().length>=6;
 const nonblank=x=>typeof x==='string'&&x.trim().length>0;
 const properName=x=>typeof x==='string'&&x.trim().length>=2;
@@ -83,6 +83,66 @@ export function lock(meta,bible,review){
  const rec={version:2,locked:true,reviewed:true,bible,createdAt:new Date().toISOString()};
  meta[KEY]=rec;return rec;
 }
+
+// A validated but UNSEALED candidate is private metadata. It is NEVER injected into narration.
+export function pending(meta){
+ const rec=obj(meta)?meta[DRAFT_KEY]:null;
+ return obj(rec)&&rec.version===1&&rec.unsealed===true&&validate(rec.bible).ok?rec:null;
+}
+export function saveDraft(meta,bible){
+ if(!obj(meta))throw Error('No active chat metadata.');
+ if(sealed(meta[KEY]))throw Error('A Bible is already sealed in this chat.');
+ const test=validate(bible);
+ if(!test.ok)throw Error('Cannot cache invalid draft: '+test.issues.join(', '));
+ const prev=pending(meta);
+ const record={version:1,unsealed:true,bible,audit:{state:'pending',issues:[]},
+  repairAttempts:prev?.repairAttempts||0,createdAt:prev?.createdAt||new Date().toISOString()};
+ meta[DRAFT_KEY]=record;return record;
+}
+export function recordReview(meta,review){
+ const draft=pending(meta);
+ if(!draft)throw Error('No validated unsealed draft to review.');
+ if(!obj(review)||typeof review.approved!=='boolean'||!Array.isArray(review.issues)||
+   !review.issues.every(x=>typeof x==='string'))
+  throw Error('Review returned an invalid verdict. Draft kept for retry.');
+ const passed=review.approved===true&&review.issues.length===0;
+ draft.audit={state:passed?'approved':'rejected',issues:review.issues.slice(0,12).map(x=>x.slice(0,450))};
+ return passed;
+}
+export function reviewSummary(draft){
+ const issues=Array.isArray(draft?.audit?.issues)?draft.audit.issues:[];
+ if(!issues.length)return 'Review was inconclusive; draft preserved.';
+ const patterns=[
+  [/clue|lead|evidence|fact|discover|access|independen|bottleneck/i,'clue access'],
+  [/map|location|connect|route|room/i,'map routes'],
+  [/rule|mechanic|hazard|warning|danger|counterplay/i,'survival rules'],
+  [/timeline|time|clock|chronol|count|number/i,'time/count'],
+  [/clear|exit|goal|win|escape|condition/i,'clear conditions'],
+  [/npc|character|witness|knowledge|romance|person/i,'NPC logic'],
+ ];
+ const tags=new Set();
+ for(const issue of issues){
+  const match=patterns.find(([re])=>re.test(issue));
+  tags.add(match?match[1]:'other consistency');
+ }
+ return issues.length+' review concern(s): '+[...tags].slice(0,4).join(', ')+'.';
+}
+export function repairPrompt(bible,issues){
+ if(!validate(bible).ok)throw Error('Only a validated draft can be repaired.');
+ if(!Array.isArray(issues)||!issues.length)throw Error('No review issues to repair.');
+ return [
+  'You are the PRIVATE INSTANCE ARCHITECT correcting a rejected PRE-PLAY draft.',
+  'Return ONE complete compact JSON object ONLY, same schema, under 12000 characters.',
+  'Preserve the starting scenario, all adult safety and player agency constraints.',
+  'Address EACH reviewer criticism directly. Do not simply remove the criticized',
+  'facts or make the reviewer claim they are fixed. Keep Standard Clear realistically',
+  'solvable from independently accessible clues, with distinct optional endings.',
+  'Do not write story prose or spoil anything to the player. The repair is still private.',
+  'Reviewer findings (GM ONLY):',JSON.stringify(issues),
+  'Original structured draft (GM ONLY):',JSON.stringify(bible)
+ ].join('\n\n');
+}
+
 export function injection(rec){
  if(!sealed(rec))return '';
  return ['<LOCKED_INSTANCE_BIBLE version="0.2" authority="fixed-gm-canon">',
