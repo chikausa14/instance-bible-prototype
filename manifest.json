@@ -1,10 +1,10 @@
 {
-  "display_name": "Instance Architect (QA v0.2.4)",
+  "display_name": "Instance Architect (QA v0.2.5)",
   "loading_order": 110,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
   "author": "Pipette / ChatGPT — experimental QA prototype",
-  "version": "0.2.4"
+  "version": "0.2.5"
 }
