@@ -111,8 +111,18 @@ async function repair(){
 function buildUI(){
  if($('ibp-panel'))return;
  const box=document.createElement('div');box.id='ibp-panel';
- const h=document.createElement('h3');h.textContent='📖 Instance Architect — QA v0.2.4';box.append(h);
- const p=document.createElement('p');p.textContent='Experimental. Generate, preserve and repair private drafts; only reviewed Bibles are locked. Disposable QA chats only.';box.append(p);
+ // Use SillyTavern's native Extensions-panel drawer, closed by default.
+ // The review/generation tasks and per-chat metadata keep running while collapsed.
+ const drawer=document.createElement('div');drawer.className='inline-drawer';
+ const header=document.createElement('div');header.className='inline-drawer-toggle inline-drawer-header';
+ header.setAttribute('role','button');header.setAttribute('tabindex','0');
+ header.setAttribute('aria-expanded','false');header.setAttribute('aria-controls','ibp-content');
+ const title=document.createElement('b');title.textContent='📖 Instance Architect — QA v0.2.5';header.append(title);
+ const icon=document.createElement('div');icon.className='inline-drawer-icon fa-solid fa-circle-chevron-down down';header.append(icon);
+ header.addEventListener('click',()=>header.setAttribute('aria-expanded',String(header.getAttribute('aria-expanded')!=='true')));
+ header.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();header.click();}});
+ const content=document.createElement('div');content.id='ibp-content';content.className='inline-drawer-content';
+ const p=document.createElement('p');p.textContent='Experimental. Generate, preserve and repair private drafts; only reviewed Bibles are locked. Disposable QA chats only.';content.append(p);
  const controls=document.createElement('div');controls.className='ibp-controls';
  const btn=(id,label,cb)=>{const b=document.createElement('button');b.id=id;b.type='button';b.textContent=label;b.addEventListener('click',cb);controls.append(b)};
  btn('ibp-generate','✨ Generate Instance',generate);
@@ -128,8 +138,9 @@ function buildUI(){
   if(!confirm('DELETE the SEALED Instance Bible from this QA chat? This invalidates the mystery run.'))return;
   delete c.chatMetadata[KEY];saveMetadataDebounced();status('Sealed QA Bible deleted.');
  });
- box.append(controls);
- const st=document.createElement('p');st.id='ibp-status';st.setAttribute('aria-live','polite');box.append(st);
+ content.append(controls);
+ const st=document.createElement('p');st.id='ibp-status';st.setAttribute('aria-live','polite');content.append(st);
+ drawer.append(header,content);box.append(drawer);
  (document.getElementById('extensions_settings')||document.body).append(box);status();
 }
 function inject(payload,type){
@@ -141,5 +152,5 @@ function inject(payload,type){
  messages.unshift({role:'system',content:injection(rec)});
  lastInjected=c.chatId;lastTime=new Date().toLocaleTimeString();status();
 }
-function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.4] isolated raw generation; test only')}
+function init(){eventSource.on(event_types.CHAT_COMPLETION_PROMPT_READY,inject);eventSource.on(event_types.CHAT_CHANGED,()=>status());buildUI();console.info('[Instance Architect v0.2.5] collapsible settings panel; isolated raw generation unchanged')}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
