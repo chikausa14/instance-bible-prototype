@@ -1,4 +1,4 @@
-# 📖 Instance Architect — QA v0.2.4
+# 📖 Instance Architect — QA v0.2.5
 
 Phone-friendly experimental companion extension for TauriTavern/SillyTavern and Megumin V11.
 
@@ -20,7 +20,7 @@ Use TauriTavern's extension manager to **Update** the existing Instance Bible in
 
 https://github.com/chikausa14/instance-bible-prototype
 
-Reload TauriTavern. Look for **📖 Instance Architect — QA v0.2** in Extensions settings.
+Reload TauriTavern. Look for the collapsed **📖 Instance Architect — QA v0.2.5** dropdown in Extensions settings; tap its arrow to access the controls.
 
 ## Test safely
 
@@ -91,3 +91,10 @@ The v0.2.3 phone test passed parsing and structural validation, but the independ
 **Model limitations:** Very long output can truncate and fail validation. Drafts that fail or audits that reject do not seal and must be regenerated deliberately.
 
 The extension is experimental and must never store private personal data in the Bible. It does not modify Megumin itself.
+
+## QA v0.2.5: Collapsible settings panel (UI-only)
+
+- The Extensions settings panel now uses SillyTavern's native `inline-drawer` header and arrow, collapsed by default to save phone screen space.
+- Open the dropdown to see the existing Generate, Retry/Repair, status, and Delete/Discard controls. Generation/review continues even while the drawer is closed.
+- The underlying review/generation logic, metadata keys, injection, and QA Bible storage were **not changed**.
+- Let any ongoing review finish before updating/reloading TauriTavern so the in-flight request is not interrupted.
